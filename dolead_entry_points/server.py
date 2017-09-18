@@ -4,6 +4,7 @@ import collections
 from io import BytesIO
 from gzip import GzipFile
 from functools import wraps
+from flask import jsonify
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class CodeExecContext():
 
 # this is for the main script to leave a reference to the app in
 _DEFAULTS = {'flask_app': None,
-             'flask_formatter': lambda x: x,
+             'flask_formatter': jsonify,
              'flask_code_exec_ctx_cls': CodeExecContext,
              'celery_app': None,
              'celery_formatter': lambda x: x,
