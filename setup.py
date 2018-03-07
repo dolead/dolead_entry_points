@@ -6,7 +6,7 @@ with open('README.md') as fd:
     readme = fd.read()
 
 setup(name='dolead_entry_points',
-      version='0.0.1',
+      version='0.0.2',
       description='Multiple entry points generator',
       long_description=readme,
       keywords='flask celery web',

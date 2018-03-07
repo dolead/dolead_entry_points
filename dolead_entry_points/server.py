@@ -30,6 +30,12 @@ _DEFAULTS = {'flask_app': None,
              'celery_code_exec_ctx_cls': CodeExecContext}
 
 
+def kwargs_or_defaults(key, kwargs):
+    if key in kwargs:
+        return kwargs[key]
+    return _DEFAULTS[key]
+
+
 def set_default_app(**kwargs):
     _DEFAULTS.update(kwargs)
 
@@ -47,11 +53,11 @@ def _gen_qn(*args, **kw):
     return ".".join([task_prefix] + list(args))
 
 
-def map_in_celery(func, qualname, **serv_kwargs):
+def map_in_celery(func, qualname, **kwargs):
     "Will map a standard method to a task in celery"
     celery_kwargs = {'name': qualname}
-    celery_kwargs.update(serv_kwargs)
-    celery_app = serv_kwargs.pop('celery_app', _DEFAULTS.get('celery_app'))
+    celery_kwargs.update(kwargs)
+    celery_app = kwargs_or_defaults('celery_app', kwargs)
     if celery_app is None:
         logger.debug('No celery_app provided, no celery for %s', qualname)
         return
@@ -59,9 +65,10 @@ def map_in_celery(func, qualname, **serv_kwargs):
     @celery_app.task(bind=True, **celery_kwargs)
     @wraps(func)
     def celery_wrapper(self, *args, **kwargs):
-        CodeExecCtxCls = _DEFAULTS['celery_code_exec_ctx_cls']
+        CodeExecCtxCls = kwargs_or_defaults('celery_code_exec_ctx_cls', kwargs)
+        formatter = kwargs_or_defaults('celery_formatter', kwargs)
         with CodeExecCtxCls(self.request):
-            result = _DEFAULTS['celery_formatter'](func(*args, **kwargs))
+            result = formatter(func(*args, **kwargs))
         return result
     return celery_wrapper
 
@@ -80,7 +87,7 @@ def generic_task(*decorator_args, **decorator_kwargs):
 
 
 
-def map_in_flask(func, name, qualname, method):
+def map_in_flask(func, name, qualname, method, **kwargs):
     "Will map a standard method to a name and the according route in flask"
     if not _DEFAULTS.get('flask_app'):
         logger.debug('No flask_app provided, no flask for %s', name)
@@ -103,12 +110,13 @@ def map_in_flask(func, name, qualname, method):
                 logger.exception('an error occured while deserializing')
                 request.data = {}
 
-        CodeExecCtxCls = _DEFAULTS['flask_code_exec_ctx_cls']
+        CodeExecCtxCls = kwargs_or_defaults('flask_code_exec_ctx_cls', kwargs)
         if not request.data:
             request.data = {}
+        formatter = kwargs_or_defaults('flask_formatter', kwargs)
         try:
             with CodeExecCtxCls(request):
-                return _DEFAULTS['flask_formatter'](func(**request.data))
+                return formatter(func(**request.data))
         except TypeError as error:
             logger.exception("something went wrong when executing %r %r %r %r",
                              func, name, qualname, method)
@@ -116,11 +124,11 @@ def map_in_flask(func, name, qualname, method):
             raise ExpectationFailed(*error.args)
 
     name = ("/%s" % name).replace('.', '/')
-    _DEFAULTS['flask_app'].add_url_rule(name, qualname, flask_wrapper,
-                                        methods=[method])
+    flask_app = kwargs_or_defaults('flask_app', kwargs)
+    flask_app.add_url_rule(name, qualname, flask_wrapper, methods=[method])
     if not name.endswith('/'):
-        _DEFAULTS['flask_app'].add_url_rule(name + "/", qualname,
-                                            flask_wrapper, methods=[method])
+        flask_app.add_url_rule(name + "/", qualname,
+                               flask_wrapper, methods=[method])
 
 
 def serv(prefix, route='', method='get', **kwargs):
@@ -131,7 +139,7 @@ def serv(prefix, route='', method='get', **kwargs):
         qualname = _gen_qn(prefix=prefix, route=route, method=method, **kwargs)
 
         map_in_celery(func, qualname, **kwargs)
-        map_in_flask(func, path, qualname, method)
+        map_in_flask(func, path, qualname, method, **kwargs)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
