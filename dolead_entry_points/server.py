@@ -25,6 +25,7 @@ class CodeExecContext():
 _DEFAULTS = {'flask_app': None,
              'flask_formatter': jsonify,
              'flask_code_exec_ctx_cls': CodeExecContext,
+             'task_prefix': 'core',
              'celery_app': None,
              'celery_formatter': lambda x: x,
              'celery_code_exec_ctx_cls': CodeExecContext}
@@ -47,7 +48,7 @@ def _gen_path(prefix, route='', **kwargs):
 
 def _gen_qn(*args, **kw):
     "Generate a qualname, should be unique"
-    task_prefix = kw.get('task_prefix', 'core')
+    task_prefix = kwargs_or_defaults('task_prefix', kw)
     if len(set(['prefix', 'method']).intersection(kw)) == 2:
         return "%s.%s.%s" % (task_prefix, _gen_path(**kw), kw['method'])
     return ".".join([task_prefix] + list(args))
@@ -102,7 +103,7 @@ def map_in_flask(func, name, qualname, method, **kwargs):
             with GzipFile(fileobj=bytesio, mode='r') as gzipfile:
                 request.data = gzipfile.read()
         if request.content_type == 'application/json':
-            if type(request.data) is bytes:
+            if isinstance(request.data, bytes):
                 request.data = request.data.decode('utf8')
             try:
                 request.data = json.loads(request.data)
