@@ -25,10 +25,13 @@ class CodeExecContext():
 _DEFAULTS = {'flask_app': None,
              'flask_formatter': jsonify,
              'flask_code_exec_ctx_cls': CodeExecContext,
+             'restx_api': None,
              'task_prefix': 'core',
              'celery_app': None,
              'celery_formatter': lambda x: x,
              'celery_code_exec_ctx_cls': CodeExecContext}
+
+NAMESPACES = {}
 
 
 def kwargs_or_defaults(key, kwargs):
@@ -87,7 +90,6 @@ def generic_task(*decorator_args, **decorator_kwargs):
     return metawrapper
 
 
-
 def map_in_flask(func, name, qualname, method, **kwargs):
     "Will map a standard method to a name and the according route in flask"
     if not _DEFAULTS.get('flask_app'):
@@ -132,6 +134,32 @@ def map_in_flask(func, name, qualname, method, **kwargs):
                                flask_wrapper, methods=[method])
 
 
+def map_in_restx(func, prefix, route, method, **kwargs):
+    # import Resource, manage namespaces
+    from flask_restx import Resource
+    restx_api = _DEFAULTS.get('restx_api')
+    prefix = prefix or 'api'
+    if prefix not in NAMESPACES:
+        NAMESPACES[prefix] = restx_api.namespace(prefix)
+    namespace = NAMESPACES[prefix]
+
+    # generate a new resource
+    @wraps(func)
+    def wfunc(self, *args, **kwargs):
+        # need to wrap to get rid of 'self'
+        # need @wraps to keep docstrings
+        return func(*args, **kwargs)
+    Res = type('Resource_' + func.__name__, (Resource,),
+               {method: wfunc})
+    res = Res()
+    res.__name__ = res.__class__.__name__
+
+    # register resource
+    path = "/" + _gen_path(prefix='', route=route)
+    namespace.add_resource(res, path)
+    return res
+
+
 def serv(prefix, route='', method='get', **kwargs):
     """A decorator for serving service methods"""
 
@@ -140,11 +168,14 @@ def serv(prefix, route='', method='get', **kwargs):
         qualname = _gen_qn(prefix=prefix, route=route, method=method, **kwargs)
 
         map_in_celery(func, qualname, **kwargs)
-        map_in_flask(func, path, qualname, method, **kwargs)
+        if _DEFAULTS.get('restx_api', None) is not None:
+            map_in_restx(func, prefix, route, method, **kwargs)
+            return func
+        else:
+            map_in_flask(func, path, qualname, method, **kwargs)
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        return wrapper
+            return wrapper
     return metawrapper
