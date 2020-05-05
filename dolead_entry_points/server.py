@@ -148,16 +148,18 @@ def map_in_restx(func, prefix, route, method, **kwargs):
         NAMESPACES[prefix] = restx_api.namespace(prefix)
     namespace = NAMESPACES[prefix]
 
-    # generate a new resource
+    # define a new resource
     @wraps(func)
     def wfunc(self, *args, **kwargs):
         # need to wrap to get rid of 'self'
         # need @wraps to keep docstrings
         return func(*args, **kwargs)
     resource_class_name = 'Resource_%s_%s' % (prefix, func.__name__)
-    Res = type(resource_class_name, (Resource,),
+    resource_class = type(resource_class_name, (Resource,),
                {method: wfunc})
-    res = Res()
+
+    # create restx resource
+    res = resource_class()
     res.__name__ = resource_class_name
 
     # register resource
