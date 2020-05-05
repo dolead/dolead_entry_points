@@ -154,10 +154,11 @@ def map_in_restx(func, prefix, route, method, **kwargs):
         # need to wrap to get rid of 'self'
         # need @wraps to keep docstrings
         return func(*args, **kwargs)
-    Res = type('Resource_' + func.__name__, (Resource,),
+    resource_class_name = 'Resource_%s_%s' % (prefix, func.__name__)
+    Res = type(resource_class_name, (Resource,),
                {method: wfunc})
     res = Res()
-    res.__name__ = res.__class__.__name__
+    res.__name__ = resource_class_name
 
     # register resource
     path = "/" + _gen_path(prefix='', route=route)
