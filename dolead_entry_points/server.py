@@ -31,8 +31,6 @@ _DEFAULTS = {'flask_app': None,
              'celery_formatter': lambda x: x,
              'celery_code_exec_ctx_cls': CodeExecContext}
 
-NAMESPACES = {}
-
 
 def kwargs_or_defaults(key, kwargs):
     if key in kwargs:
@@ -132,6 +130,13 @@ def map_in_flask(func, name, qualname, method, **kwargs):
     if not name.endswith('/'):
         flask_app.add_url_rule(name + "/", qualname,
                                flask_wrapper, methods=[method])
+
+
+NAMESPACES = {}
+
+
+def get_namespace(prefix):
+    return NAMESPACES.get(prefix, _DEFAULTS.get('restx_api'))
 
 
 def map_in_restx(func, prefix, route, method, **kwargs):
