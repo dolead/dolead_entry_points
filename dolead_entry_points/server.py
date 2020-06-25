@@ -1,9 +1,11 @@
+import collections
+import inspect
 import json
 import logging
-import collections
-from io import BytesIO
-from gzip import GzipFile
 from functools import wraps
+from gzip import GzipFile
+from io import BytesIO
+
 from flask import jsonify
 
 logger = logging.getLogger(__name__)
@@ -16,6 +18,7 @@ FLASK_TO_SWAGGER = {
     list: 'array',
     'default': 'chelou',
 }
+
 
 class CodeExecContext():
 
@@ -145,10 +148,10 @@ def map_in_flask(func, name, qualname, method, **kwargs):
 def swag_specs_from_func(func, swagger_specs):
     swagger_specs = swagger_specs or {}
     intro_specs = {'description': func.__name__}  # maybe func.__doc__
-    import inspect
     fas = inspect.getfullargspec(func)
     params = [{'name': a,
-               'type': FLASK_TO_SWAGGER.get(fas.annotations.get(a, 'default'))} for a in fas.args]
+               'type': FLASK_TO_SWAGGER.get(fas.annotations.get(a, 'default'))}
+              for a in fas.args]
     intro_specs['parameters'] = params
     intro_specs.update(swagger_specs)
     if inspect.ismethod(func):
@@ -168,8 +171,8 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
 
         map_in_celery(func, qualname, **kwargs)
 
-        if _DEFAULTS.get('flask_swagger', None) is not None:
-            swag_from = _DEFAULTS.get('flask_swagger')
+        swag_from = _DEFAULTS.get('flask_swagger', None)
+        if swag_from is not None:
             func, specs = swag_specs_from_func(func, swagger_specs)
             func = swag_from(specs=specs)(func)
 
