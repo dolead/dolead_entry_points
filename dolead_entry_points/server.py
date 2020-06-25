@@ -13,6 +13,7 @@ FLASK_TO_SWAGGER = {
     str: 'string',
     dict: 'dictonary',
     float: 'number',
+    list: 'array',
     'default': 'chelou',
 }
 
