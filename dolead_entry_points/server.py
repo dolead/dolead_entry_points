@@ -1,12 +1,23 @@
+import collections
+import inspect
 import json
 import logging
-import collections
-from io import BytesIO
-from gzip import GzipFile
 from functools import wraps
+from gzip import GzipFile
+from io import BytesIO
+
 from flask import jsonify
 
 logger = logging.getLogger(__name__)
+
+FLASK_TO_SWAGGER = {
+    int: 'integer',
+    str: 'string',
+    dict: 'dictonary',
+    float: 'number',
+    list: 'array',
+    'default': 'chelou',
+}
 
 
 class CodeExecContext():
@@ -25,6 +36,7 @@ class CodeExecContext():
 _DEFAULTS = {'flask_app': None,
              'flask_formatter': jsonify,
              'flask_code_exec_ctx_cls': CodeExecContext,
+             'flask_swagger': None,
              'task_prefix': 'core',
              'celery_app': None,
              'celery_formatter': lambda x: x,
@@ -94,6 +106,7 @@ def map_in_flask(func, name, qualname, method, **kwargs):
         logger.debug('No flask_app provided, no flask for %s', name)
         return
 
+    @wraps(func)
     def flask_wrapper():
         from flask import request
         if request.content_encoding == 'gzip':
@@ -132,7 +145,25 @@ def map_in_flask(func, name, qualname, method, **kwargs):
                                flask_wrapper, methods=[method])
 
 
-def serv(prefix, route='', method='get', **kwargs):
+def swag_specs_from_func(prefix, func, swagger_specs):
+    swagger_specs = swagger_specs or {}
+    intro_specs = {'description': func.__name__}  # maybe func.__doc__
+    intro_specs = {'tags': [prefix]}
+    fas = inspect.getfullargspec(func)
+    params = [{'name': a,
+               'type': FLASK_TO_SWAGGER.get(fas.annotations.get(a, 'default'))}
+              for a in fas.args]
+    intro_specs['parameters'] = params
+    intro_specs.update(swagger_specs)
+    if inspect.ismethod(func):
+        @wraps(func)
+        def to_func(*args, **kwargs):
+            return func(args, kwargs)
+        func = to_func
+    return func, intro_specs
+
+
+def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
     """A decorator for serving service methods"""
 
     def metawrapper(func):
@@ -140,6 +171,12 @@ def serv(prefix, route='', method='get', **kwargs):
         qualname = _gen_qn(prefix=prefix, route=route, method=method, **kwargs)
 
         map_in_celery(func, qualname, **kwargs)
+
+        swag_from = _DEFAULTS.get('flask_swagger', None)
+        if swag_from is not None:
+            func, specs = swag_specs_from_func(prefix, func, swagger_specs)
+            func = swag_from(specs=specs)(func)
+
         map_in_flask(func, path, qualname, method, **kwargs)
 
         @wraps(func)
