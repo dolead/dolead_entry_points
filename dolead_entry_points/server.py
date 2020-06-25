@@ -145,9 +145,10 @@ def map_in_flask(func, name, qualname, method, **kwargs):
                                flask_wrapper, methods=[method])
 
 
-def swag_specs_from_func(func, swagger_specs):
+def swag_specs_from_func(prefix, func, swagger_specs):
     swagger_specs = swagger_specs or {}
     intro_specs = {'description': func.__name__}  # maybe func.__doc__
+    intro_specs = {'tags': [prefix]}
     fas = inspect.getfullargspec(func)
     params = [{'name': a,
                'type': FLASK_TO_SWAGGER.get(fas.annotations.get(a, 'default'))}
@@ -173,7 +174,7 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
 
         swag_from = _DEFAULTS.get('flask_swagger', None)
         if swag_from is not None:
-            func, specs = swag_specs_from_func(func, swagger_specs)
+            func, specs = swag_specs_from_func(prefix, func, swagger_specs)
             func = swag_from(specs=specs)(func)
 
         map_in_flask(func, path, qualname, method, **kwargs)
