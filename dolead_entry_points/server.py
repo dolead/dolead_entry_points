@@ -158,8 +158,8 @@ def swag_specs_from_func(prefix, func, swagger_specs):
     if inspect.ismethod(func):
         @wraps(func)
         def to_func(*args, **kwargs):
-            return func(args, kwargs)
-        func = to_func
+            return func(*args, **kwargs)
+        return to_func, intro_specs
     return func, intro_specs
 
 
