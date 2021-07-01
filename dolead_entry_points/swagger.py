@@ -61,5 +61,3 @@ def process_prototype(prefix, func):
             return func(*args, **kwargs)
         return to_func, specs
     return func, specs
-
-
