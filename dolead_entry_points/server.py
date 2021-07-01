@@ -16,13 +16,14 @@ from werkzeug.exceptions import ExpectationFailed
 logger = logging.getLogger(__name__)
 
 FLASK_TO_SWAGGER = {
-    int: 'integer',
-    str: 'string',
-    dict: 'dictionnary',
-    Dict: 'dictionnary',
-    float: 'number',
-    list: 'array',
-    List: 'array',
+    int: "integer",
+    str: "string",
+    bool: "boolean",
+    dict: "object",
+    Dict: "object",
+    float: "number",
+    list: "array",
+    List: "array",
 }
 
 
@@ -171,8 +172,8 @@ def swag_specs_from_func(prefix, func):
         specs['parameters'].append({'name': param_name,
                                     'type': _to_swagger_type(type_hint)})
     if 'return' in type_hints:
-        specs['responses'] = {
-            '200': {'type': _to_swagger_type(type_hints['return'])}}
+        swagger_type = _to_swagger_type(type_hints['return'])
+        specs['responses'] = {'200': {'schema': {'type': swagger_type}}}
     if inspect.ismethod(func):
         @wraps(func)
         def to_func(*args, **kwargs):
