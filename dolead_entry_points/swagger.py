@@ -37,7 +37,11 @@ def _to_swagger_type(type_hint):
 def process_prototype(prefix, func):
     fas = inspect.getfullargspec(func)
     type_hints = get_type_hints(func)
-    specs = {'description': func.__doc__ or func.__qualname__,
+    qualname = func.__qualname__
+    if '.' in func.__qualname__:
+        qualname = func.__qualname__.split('.')[-1]
+    specs = {'description': func.__doc__ or qualname,
+             'operationId': qualname,
              'tags': prefix.split('.'), 'parameters': []}
     default_offset = len(fas.args) - len(fas.defaults or [])
     for param_name in set(fas.args).union(type_hints):
@@ -61,6 +65,9 @@ def process_prototype(prefix, func):
                 parameter["default"] = default.value
             else:
                 parameter["default"] = default
+            if "type" not in parameter \
+                    and type(parameter["default"]) in FLASK_TO_SWAGGER:
+                parameter["type"] = FLASK_TO_SWAGGER[type(parameter["default"])]
         else:
             parameter["required"] = True
     if 'return' in type_hints:
