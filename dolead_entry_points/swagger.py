@@ -67,7 +67,8 @@ def process_prototype(prefix, func):
                 parameter["default"] = default
             if "type" not in parameter \
                     and type(parameter["default"]) in FLASK_TO_SWAGGER:
-                parameter["type"] = FLASK_TO_SWAGGER[type(parameter["default"])]
+                parameter["type"] = FLASK_TO_SWAGGER[
+                    type(parameter["default"])]
         else:
             parameter["required"] = True
     if 'return' in type_hints:
