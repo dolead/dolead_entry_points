@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "dolead_entry_points"
+version = "0.0.7"
+description = "Multi transport client/server solution"
+authors = ["François Schmidts <francois@schmidts.fr>"]
+license = "GPLv2"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+requests = ">=2.13.0"
+celery = ">=3.1.17"
+
+[tool.poetry.dev-dependencies]
+isort = "^5.9.1"
+mypy = "^0.910"
+flake8 = "^3.9.2"
+pycodestyle = "^2.7.0"
+pylint = "^2.9.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
