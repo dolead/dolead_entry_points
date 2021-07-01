@@ -24,6 +24,7 @@ FLASK_TO_SWAGGER = {
     float: "number",
     list: "array",
     List: "array",
+    None: "null",
 }
 
 
