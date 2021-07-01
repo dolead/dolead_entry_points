@@ -37,9 +37,6 @@ def _to_swagger_type(type_hint):
 def process_prototype(prefix, func):
     fas = inspect.getfullargspec(func)
     type_hints = get_type_hints(func)
-    if 'fetch_children_account' in func.__qualname__:
-        import ipdb
-        ipdb.sset_trace()
     specs = {'description': func.__doc__ or func.__qualname__,
              'tags': prefix.split('.'), 'parameters': []}
     default_offset = len(fas.args) - len(fas.defaults or [])
