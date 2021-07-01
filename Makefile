@@ -1,14 +1,17 @@
 PROJECT=dolead_entry_points
-RUN=
+RUN=poetry run
+
+install:
+	poetry update
 
 test:
-	pytest --cov=$(PROJECT)
+	$(RUN) pytest --cov=$(PROJECT)
 
 pep8:
-	pycodestyle --ignore=E126,E127,E128,W503 $(PROJECT)/
+	$(RUN) pycodestyle --ignore=E126,E127,E128,W503 $(PROJECT)/
 
 mypy:
-	mypy $(PROJECT) --ignore-missing-imports
+	$(RUN) mypy $(PROJECT) --ignore-missing-imports
 
 lint: pep8 mypy
 
