@@ -5,22 +5,25 @@ import logging
 from functools import wraps
 from gzip import GzipFile
 from io import BytesIO
+from typing import Dict, List
 
-from flask import jsonify
+from flasgger import LazyString, Swagger, swag_from
+from flask import jsonify, request
 
 logger = logging.getLogger(__name__)
 
 FLASK_TO_SWAGGER = {
     int: 'integer',
     str: 'string',
-    dict: 'dictonary',
+    dict: 'dictionnary',
+    Dict: 'dictionnary',
     float: 'number',
     list: 'array',
-    'default': 'chelou',
+    List: 'array',
 }
 
 
-class CodeExecContext():
+class CodeExecContext:
 
     def __init__(self, request):
         self.request = request
@@ -36,8 +39,7 @@ class CodeExecContext():
 _DEFAULTS = {'flask_app': None,
              'flask_formatter': jsonify,
              'flask_code_exec_ctx_cls': CodeExecContext,
-             'flask_swagger': None,
-             'task_prefix': 'core',
+             'task_prefix': 'dolead-entry-points',
              'celery_app': None,
              'celery_formatter': lambda x: x,
              'celery_code_exec_ctx_cls': CodeExecContext}
@@ -51,6 +53,8 @@ def kwargs_or_defaults(key, kwargs):
 
 def set_default_app(**kwargs):
     _DEFAULTS.update(kwargs)
+    if 'flask_app' in kwargs:
+        Swagger(kwargs['flask_app'])
 
 
 def _gen_path(prefix, route='', **kwargs):
@@ -99,7 +103,6 @@ def generic_task(*decorator_args, **decorator_kwargs):
     return metawrapper
 
 
-
 def map_in_flask(func, name, qualname, method, **kwargs):
     "Will map a standard method to a name and the according route in flask"
     if not _DEFAULTS.get('flask_app'):
@@ -145,25 +148,27 @@ def map_in_flask(func, name, qualname, method, **kwargs):
                                flask_wrapper, methods=[method])
 
 
-def swag_specs_from_func(prefix, func, swagger_specs):
-    swagger_specs = swagger_specs or {}
-    intro_specs = {'description': func.__name__}  # maybe func.__doc__
-    intro_specs = {'tags': [prefix]}
+def _to_swagger_param(fas):
+    for arg in fas.args:
+        param = {'name': arg}
+        if fas.annotations.get(arg) in FLASK_TO_SWAGGER:
+            param['type'] = FLASK_TO_SWAGGER[fas.annotations[arg]]
+        yield param
+
+
+def swag_specs_from_func(prefix, func):
     fas = inspect.getfullargspec(func)
-    params = [{'name': a,
-               'type': FLASK_TO_SWAGGER.get(fas.annotations.get(a, 'default'))}
-              for a in fas.args]
-    intro_specs['parameters'] = params
-    intro_specs.update(swagger_specs)
+    specs = {'description': func.__name__, 'tags': [prefix],
+             'parameters': list(_to_swagger_param(fas))}
     if inspect.ismethod(func):
         @wraps(func)
         def to_func(*args, **kwargs):
             return func(*args, **kwargs)
-        return to_func, intro_specs
-    return func, intro_specs
+        return to_func, specs
+    return func, specs
 
 
-def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
+def serv(prefix, route='', method='get', **kwargs):
     """A decorator for serving service methods"""
 
     def metawrapper(func):
@@ -172,10 +177,8 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
 
         map_in_celery(func, qualname, **kwargs)
 
-        swag_from = _DEFAULTS.get('flask_swagger', None)
-        if swag_from is not None:
-            func, specs = swag_specs_from_func(prefix, func, swagger_specs)
-            func = swag_from(specs=specs)(func)
+        func, specs = swag_specs_from_func(prefix, func)
+        func = swag_from(specs=specs)(func)
 
         map_in_flask(func, path, qualname, method, **kwargs)
 
