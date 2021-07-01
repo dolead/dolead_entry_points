@@ -1,6 +1,10 @@
 import requests
 from io import BytesIO
 from gzip import GzipFile
+from copy import deepcopy
+import json
+import aiohttp
+from dolead_entry_points.utils.json import default_handler
 
 
 def request_http(method, url, payload, headers=None, gzip=True):
@@ -17,6 +21,23 @@ def request_http(method, url, payload, headers=None, gzip=True):
         gzip_file.close()
         data = stringio.getvalue()
     return method(url, headers=headers, data=data)
+
+
+async def request_http_async(method, url, payload, headers=None, gzip=True):
+    async with aiohttp.ClientSession() as session:
+        method = getattr(session, method)
+        data = json.dumps(payload, default=default_handler)
+        if headers is None:
+            headers = {}
+        headers['Content-Type'] = 'application/json'
+        if gzip:
+            headers['Content-Encoding'] = 'gzip'
+            stringio = BytesIO()
+            gzip_file = GzipFile(fileobj=stringio, mode='w')
+            gzip_file.write(data.encode('utf8'))
+            gzip_file.close()
+            data = stringio.getvalue()
+        return await method(url, headers=headers, data=data)
 
 
 def _import_object(name):
@@ -47,6 +68,7 @@ def request_celery(config_path, worker, method, urn, uris_parts, payload,
             if not sync_result:
                 return async_result
             else:
+                # FIXME: This doesn't seem right
                 r = async_result.get(**self.transport_options)
                 result = deepcopy(r)
                 try:
