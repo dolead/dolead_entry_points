@@ -16,7 +16,7 @@ def request_http(method, url, payload, headers=None, gzip=True):
         gzip_file.write(data.encode('utf8'))
         gzip_file.close()
         data = stringio.getvalue()
-    return method(url, headers=headers, data=data, **self.transport_options)
+    return method(url, headers=headers, data=data)
 
 
 def _import_object(name):

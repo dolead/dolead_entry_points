@@ -1,53 +1,27 @@
 import collections
-import inspect
 import json
 import logging
-from enum import Enum
 from functools import wraps
 from gzip import GzipFile
 from io import BytesIO
-from typing import Dict, List, get_type_hints
 
 from flasgger import Swagger, swag_from
 from flask import jsonify
 from flask import request as flask_request
 from werkzeug.exceptions import ExpectationFailed
+from dolead_entry_points import utils, swagger
 
 logger = logging.getLogger(__name__)
-
-FLASK_TO_SWAGGER = {
-    int: "integer",
-    str: "string",
-    bool: "boolean",
-    dict: "object",
-    Dict: "object",
-    float: "number",
-    list: "array",
-    List: "array",
-    None: "null",
-}
-
-
-class CodeExecContext:
-
-    def __init__(self, request):
-        self.request = request
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, *args):
-        pass
 
 
 # this is for the main script to leave a reference to the app in
 _DEFAULTS = {'flask_app': None,
              'flask_formatter': jsonify,
-             'flask_code_exec_ctx_cls': CodeExecContext,
+             'flask_code_exec_ctx_cls': utils.DefaultCodeExecContext,
              'task_prefix': 'dolead-entry-points',
              'celery_app': None,
              'celery_formatter': lambda x: x,
-             'celery_code_exec_ctx_cls': CodeExecContext}
+             'celery_code_exec_ctx_cls': utils.DefaultCodeExecContext}
 
 
 def kwargs_or_defaults(key, kwargs):
@@ -143,58 +117,9 @@ def map_in_flask(func, name, qualname, method, **kwargs):
                              func, name, qualname, method)
             raise ExpectationFailed(*error.args) from error
 
-    name = ("/%s" % name).replace('.', '/')
     flask_app = kwargs_or_defaults('flask_app', kwargs)
-    flask_app.add_url_rule(name, qualname, flask_wrapper, methods=[method])
-    if not name.endswith('/'):
-        flask_app.add_url_rule(name + "/", qualname,
-                               flask_wrapper, methods=[method])
-
-
-def _to_swagger_type(type_hint):
-    if type_hint in FLASK_TO_SWAGGER:
-        return FLASK_TO_SWAGGER[type_hint]
-    if isinstance(type_hint, Enum):
-        enum_types = [type(e.value) for e in type_hint]
-        return FLASK_TO_SWAGGER[list(enum_types)[0]]
-    try:
-        return type_hint.__name__
-    except AttributeError:
-        return str(type_hint).lower()
-
-
-def swag_specs_from_func(prefix, func):
-    fas = inspect.getfullargspec(func)
-    type_hints = get_type_hints(func)
-    specs = {'description': func.__doc__ or func.__qualname__,
-             'tags': [prefix], 'parameters': []}
-    default_offset = len(fas.args) - len(fas.defaults or [])
-    for param_name in set(fas.args).union(type_hints):
-        if param_name == 'return':
-            continue
-        parameter = {'name': param_name}
-        if param_name in type_hints:
-            parameter['type'] = _to_swagger_type(type_hints[param_name])
-        specs['parameters'].append(parameter)
-        if not fas.defaults:
-            parameter["required"] = True
-            continue
-        fas_index = fas.args.index(param_name)
-        if fas_index != -1 and fas_index > default_offset:
-            default = fas.defaults[fas_index - default_offset]
-            parameter["required"] = False
-            parameter["default"] = default
-        else:
-            parameter["required"] = True
-    if 'return' in type_hints:
-        swagger_type = _to_swagger_type(type_hints['return'])
-        specs['responses'] = {'200': {'schema': {'type': swagger_type}}}
-    if inspect.ismethod(func):
-        @wraps(func)
-        def to_func(*args, **kwargs):
-            return func(*args, **kwargs)
-        return to_func, specs
-    return func, specs
+    flask_app.add_url_rule(utils.to_http_path(name), qualname,
+                           flask_wrapper, methods=[method])
 
 
 def serv(prefix, route='', method='get', **kwargs):
@@ -206,7 +131,7 @@ def serv(prefix, route='', method='get', **kwargs):
 
         map_in_celery(func, qualname, **kwargs)
 
-        func, specs = swag_specs_from_func(prefix, func)
+        func, specs = swagger.process_prototype(prefix, func)
         func = swag_from(specs=specs)(func)
 
         map_in_flask(func, path, qualname, method, **kwargs)
