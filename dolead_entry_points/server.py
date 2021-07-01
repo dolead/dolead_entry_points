@@ -2,13 +2,16 @@ import collections
 import inspect
 import json
 import logging
+from enum import Enum
 from functools import wraps
 from gzip import GzipFile
 from io import BytesIO
-from typing import Dict, List
+from typing import Dict, List, get_type_hints
 
-from flasgger import LazyString, Swagger, swag_from
-from flask import jsonify, request
+from flasgger import Swagger, swag_from
+from flask import jsonify
+from flask import request as flask_request
+from werkzeug.exceptions import ExpectationFailed
 
 logger = logging.getLogger(__name__)
 
@@ -111,34 +114,32 @@ def map_in_flask(func, name, qualname, method, **kwargs):
 
     @wraps(func)
     def flask_wrapper():
-        from flask import request
-        if request.content_encoding == 'gzip':
+        if flask_request.content_encoding == 'gzip':
             bytesio = BytesIO()
-            bytesio.write(request.data)
+            bytesio.write(flask_request.data)
             bytesio.seek(0)
             with GzipFile(fileobj=bytesio, mode='r') as gzipfile:
-                request.data = gzipfile.read()
-        if request.content_type == 'application/json':
-            if isinstance(request.data, bytes):
-                request.data = request.data.decode('utf8')
+                flask_request.data = gzipfile.read()
+        if flask_request.content_type == 'application/json':
+            if isinstance(flask_request.data, bytes):
+                flask_request.data = flask_request.data.decode('utf8')
             try:
-                request.data = json.loads(request.data)
+                flask_request.data = json.loads(flask_request.data)
             except ValueError:
                 logger.exception('an error occured while deserializing')
-                request.data = {}
+                flask_request.data = {}
 
         CodeExecCtxCls = kwargs_or_defaults('flask_code_exec_ctx_cls', kwargs)
-        if not request.data:
-            request.data = {}
+        if not flask_request.data:
+            flask_request.data = {}
         formatter = kwargs_or_defaults('flask_formatter', kwargs)
         try:
-            with CodeExecCtxCls(request):
-                return formatter(func(**request.data))
+            with CodeExecCtxCls(flask_request):
+                return formatter(func(**flask_request.data))
         except TypeError as error:
             logger.exception("something went wrong when executing %r %r %r %r",
                              func, name, qualname, method)
-            from werkzeug.exceptions import ExpectationFailed
-            raise ExpectationFailed(*error.args)
+            raise ExpectationFailed(*error.args) from error
 
     name = ("/%s" % name).replace('.', '/')
     flask_app = kwargs_or_defaults('flask_app', kwargs)
@@ -148,18 +149,30 @@ def map_in_flask(func, name, qualname, method, **kwargs):
                                flask_wrapper, methods=[method])
 
 
-def _to_swagger_param(fas):
-    for arg in fas.args:
-        param = {'name': arg}
-        if fas.annotations.get(arg) in FLASK_TO_SWAGGER:
-            param['type'] = FLASK_TO_SWAGGER[fas.annotations[arg]]
-        yield param
+def _to_swagger_type(type_hint):
+    if type_hint in FLASK_TO_SWAGGER:
+        return FLASK_TO_SWAGGER[type_hint]
+    if isinstance(type_hint, Enum):
+        enum_types = [type(e.value) for e in type_hint]
+        return FLASK_TO_SWAGGER[list(enum_types)[0]]
+    try:
+        return type_hint.__name__
+    except AttributeError:
+        return str(type_hint).lower()
 
 
 def swag_specs_from_func(prefix, func):
-    fas = inspect.getfullargspec(func)
-    specs = {'description': func.__name__, 'tags': [prefix],
-             'parameters': list(_to_swagger_param(fas))}
+    type_hints = get_type_hints(func)
+    specs = {'description': func.__doc__ or func.__qualname__,
+             'tags': [prefix], 'parameters': []}
+    for param_name, type_hint in type_hints.items():
+        if param_name == 'return':
+            continue
+        specs['parameters'].append({'name': param_name,
+                                    'type': _to_swagger_type(type_hint)})
+    if 'return' in type_hints:
+        specs['responses'] = {
+            '200': {'type': _to_swagger_type(type_hints['return'])}}
     if inspect.ismethod(func):
         @wraps(func)
         def to_func(*args, **kwargs):
