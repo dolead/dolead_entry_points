@@ -1,20 +1,16 @@
+from dolead_entry_points.utils.json import default_handler
 import json
 import logging
-from enum import Enum
-from typing import Optionnal, Dict, List, Union
-from copy import deepcopy
-from aiohttp.client import ClientSession
 import requests
+from enum import Enum
+from typing import Optional, Dict, List, Union
 from io import BytesIO
 from gzip import GzipFile
-import json
-import aiohttp
-from dolead_entry_points.utils.json import default_handler
-from dolead_entry_points import utils
-
+from copy import deepcopy
+from aiohttp import ClientSession
 from celery import Celery
-from celery.result import AsyncResult
-from threaded_context import get_current_context
+
+from dolead_entry_points import utils
 
 
 logger = logging.getLogger('dolead_entry_points')
@@ -89,10 +85,10 @@ class DoleadEntryPointClient:
 
     def _call_with_http(self, path: str, method: str, headers: dict, kwargs: dict):
         method = getattr(requests, method)
-        data: Optionnal[Union[bytes, str]] = None
+        data: Optional[Union[bytes, str]] = None
         if kwargs:
             data = json.dumps(
-                kwargs, default=utils.DEFAULTS['client_json_default'])
+                kwargs, default={})
             headers['Content-Type'] = 'application/json'
             if self.gzip:
                 headers['Content-Encoding'] = 'gzip'
@@ -103,22 +99,24 @@ class DoleadEntryPointClient:
                 data = stringio.getvalue()
         return method(path, headers=headers, data=data)
 
-    async def _call_with_async_http(self, path: str, method: str, headers: dict, kwargs: dict):
-        async with ClientSession as session:
-            method = getattr(session, method)
-            data: Optionnal[Union[bytes, str]] = None
-            if kwargs:
-                data = json.dumps(
-                    kwargs, default=utils.DEFAULTS['client_json_default'])
-                headers['Content-Type'] = 'application/json'
-                if self.gzip:
-                    headers['Content-Encoding'] = 'gzip'
-                    stringio = BytesIO()
-                    gzip_file = GzipFile(fileobj=stringio, mode='w')
-                    gzip_file.write(data.encode('utf8'))
-                    gzip_file.close()
-                    data = stringio.getvalue()
+    def _call_with_async_http(self, path: str, method: str, headers: dict, kwargs: dict):
+        async def wrapper(path, method, headers, kwargs, gzip):
+            async with ClientSession() as session:
+                method = getattr(session, method)
+                data: Optional[Union[bytes, str]] = None
+                if kwargs:
+                    data = json.dumps(
+                        kwargs, default={})
+                    headers['Content-Type'] = 'application/json'
+                    if gzip:
+                        headers['Content-Encoding'] = 'gzip'
+                        stringio = BytesIO()
+                        gzip_file = GzipFile(fileobj=stringio, mode='w')
+                        gzip_file.write(data.encode('utf8'))
+                        gzip_file.close()
+                        data = stringio.getvalue()
             return await method(path, headers=headers, data=data)
+        return wrapper(path, method, headers, kwargs, self.gzip)
 
 
 
@@ -141,9 +139,9 @@ class DoleadEntryPointClient:
             # no forget for ignored result as it might try to reconnect
             return None
         self._celery_async_results.append(async_result)
-        if 'async' in self.transport_method:
+        if 'async' in self._transport_method:
             return async_result
-        return async_result.get(**self.transport_options)
+        return async_result.get(**self._transport_options)
 
     def call(self, path, method, custom_key=None, **kwargs):
         method = method.strip().lower()
@@ -161,22 +159,22 @@ class DoleadEntryPointClient:
             pass
         if context:
             headers['DoleadContext'] = json.dumps(
-                context, default=utils.DEFAULTS['client_json_default'])
-        if self.transport is Transport.HTTP:
-            return self._call_with_http(path,  method, headers, kwargs)
-        elif self.transport is Transport.ASYNCIO:
+                context, default={})
+        if self._transport is Transport.HTTP:
+            return self._call_with_http(path, method, headers, kwargs)
+        elif self._transport is Transport.ASYNCIO:
             return self._call_with_async_http(path, method, headers, kwargs)
-        elif self.transport is Transport.CELERY:
+        elif self._transport is Transport.CELERY:
             # `custom_key` is an override of the "normal one", to allow context
             # management and still process the `custom_key`, we instantiate
             # another client and use it to perform the `custom_key` request
             if custom_key and self.key != custom_key:
                 client = self.__class__(
-                        transport=self.transport,
+                        transport=self._transport,
                         ignore_result=self._celery_ignore_result,
                         load_response_to_boiler=self.load_response_to_boiler,
                         countdown=self._celery_countdown,
-                        **self.transport_options)
+                        **self._transport_options)
                 client.key = custom_key
             else:
                 client = self
@@ -185,4 +183,4 @@ class DoleadEntryPointClient:
                                                 headers, kwargs)
         else:
             raise NotImplementedError('Unknown transport %r'
-                                      % self.transport_method)
+                                      % self._transport_method)
