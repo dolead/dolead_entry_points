@@ -38,7 +38,8 @@ class %(client_name)sClient(DoleadEntryPointClient):
 template_method = """
     @load_response
     def %(method_name)s(self%(space)s%(arguments)s):
-        return self.call('%(path)s', '%(method_type)s'%(space)s%(arguments_proxied)s)
+        return self.call('%(path)s', '%(method_type)s'%(space)s\
+%(arguments_proxied)s)
 """
 
 
@@ -99,5 +100,6 @@ def main():
                         f"{param['name']}={param['name']}")
                 for key in 'arguments', 'arguments_proxied':
                     template_vars[key] = ', '.join(template_vars[key])
-                template_vars['space'] = ', ' if template_vars['arguments'] else ''
+                template_vars['space'] = ', ' \
+                    if template_vars['arguments'] else ''
                 fd.write(template_method % template_vars)

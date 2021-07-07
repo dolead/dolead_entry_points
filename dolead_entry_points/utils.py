@@ -20,7 +20,8 @@ DEFAULTS = {'flask_app': None,
             'task_prefix': 'dolead-entry-points',
             'celery_app': None,
             'celery_formatter': lambda x: x,
-            'celery_code_exec_ctx_cls': DefaultCodeExecContext}
+            'celery_code_exec_ctx_cls': DefaultCodeExecContext,
+            'client_json_default': None}
 
 
 def kwargs_or_defaults(key, kwargs):
