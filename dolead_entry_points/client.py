@@ -99,8 +99,6 @@ class DoleadEntryPointClient:
         return method(path, headers=headers, data=data)
 
     async def _call_with_async_http(self, path: str, method: str, headers: dict, kwargs: dict):
-        # loop = asyncio.get_event_loop()
-        # async def wrapper(path, method, headers, kwargs, gzip):
         async with ClientSession() as session:
             method = getattr(session, method)
             data: Optional[Union[bytes, str]] = None
@@ -116,8 +114,6 @@ class DoleadEntryPointClient:
                     gzip_file.close()
                     data = stringio.getvalue()
             return await method(path, headers=headers, data=data)
-        # ret = wrapper(path, method, headers, kwargs, self.gzip)
-        # return ret
 
 
     def _call_with_celery(self, uris_parts, method,
