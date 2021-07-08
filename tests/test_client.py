@@ -57,55 +57,23 @@ class TestClientAsync(TestCase):
         assert example.status == 200
         assert await example.text() != ""
 
-    # @pytest.mark.asyncio
-    # async def test_concurrency(self):
-    #     client = DoleadEntryPointClient(Transport.HTTP)
-    #     start = time()
-    #     gather = await asyncio.gather(
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #         client.call("https://httpbin.org/get", "get", headers=HEADERS),
-    #     )
-    #     end = time()
-    #     total_run_time = end - start
-    #     assert 2.0 > total_run_time
-    #     assert gather
-    #     assert len(gather)
-    #     for e in gather:
-    #         text = await e.text()
-    #         assert e
-    #         assert text
-
-    # @pytest.mark.asyncio
-    # async def test_run_one_by_one(self):
-    #     client = DoleadEntryPointClient(Transport.HTTP)
-    #     start = time()
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     assert (await client.call("https://httpbin.org/get", "get",
-    #                               headers=HEADERS)).ok
-    #     end = time()
-    #     total_run_time = end - start
-    #     assert 2.0 < total_run_time
+    @pytest.mark.asyncio
+    async def test_concurrency(self):
+        client = DoleadEntryPointClient(Transport.ASYNCIO)
+        start = time()
+        gather = await asyncio.gather(
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS)
+        )
+        end = time()
+        total_run_time = end - start
+        assert 2.0 > total_run_time
+        assert gather
+        assert len(gather)
+        for e in gather:
+            text = await e.text()
+            assert e
+            assert text

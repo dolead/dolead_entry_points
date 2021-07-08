@@ -2,6 +2,7 @@ from dolead_entry_points.utils.json import default_handler
 import json
 import logging
 import requests
+import asyncio
 from enum import Enum
 from typing import Optional, Dict, List, Union
 from io import BytesIO
@@ -9,8 +10,6 @@ from gzip import GzipFile
 from copy import deepcopy
 from aiohttp import ClientSession
 from celery import Celery
-
-from dolead_entry_points import utils
 
 
 logger = logging.getLogger('dolead_entry_points')
@@ -99,25 +98,26 @@ class DoleadEntryPointClient:
                 data = stringio.getvalue()
         return method(path, headers=headers, data=data)
 
-    def _call_with_async_http(self, path: str, method: str, headers: dict, kwargs: dict):
-        async def wrapper(path, method, headers, kwargs, gzip):
-            async with ClientSession() as session:
-                method = getattr(session, method)
-                data: Optional[Union[bytes, str]] = None
-                if kwargs:
-                    data = json.dumps(
-                        kwargs, default={})
-                    headers['Content-Type'] = 'application/json'
-                    if gzip:
-                        headers['Content-Encoding'] = 'gzip'
-                        stringio = BytesIO()
-                        gzip_file = GzipFile(fileobj=stringio, mode='w')
-                        gzip_file.write(data.encode('utf8'))
-                        gzip_file.close()
-                        data = stringio.getvalue()
+    async def _call_with_async_http(self, path: str, method: str, headers: dict, kwargs: dict):
+        # loop = asyncio.get_event_loop()
+        # async def wrapper(path, method, headers, kwargs, gzip):
+        async with ClientSession() as session:
+            method = getattr(session, method)
+            data: Optional[Union[bytes, str]] = None
+            if kwargs:
+                data = json.dumps(
+                    kwargs, default={})
+                headers['Content-Type'] = 'application/json'
+                if self.gzip:
+                    headers['Content-Encoding'] = 'gzip'
+                    stringio = BytesIO()
+                    gzip_file = GzipFile(fileobj=stringio, mode='w')
+                    gzip_file.write(data.encode('utf8'))
+                    gzip_file.close()
+                    data = stringio.getvalue()
             return await method(path, headers=headers, data=data)
-        return wrapper(path, method, headers, kwargs, self.gzip)
-
+        # ret = wrapper(path, method, headers, kwargs, self.gzip)
+        # return ret
 
 
     def _call_with_celery(self, uris_parts, method,
