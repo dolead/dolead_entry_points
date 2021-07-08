@@ -82,7 +82,8 @@ class DoleadEntryPointClient:
         else:
             self._depth -= 1
 
-    def _call_with_http(self, path: str, method: str, headers: dict, kwargs: dict):
+    def _call_with_http(self, path: str, method: str, headers: dict,
+                        kwargs: dict):
         method = getattr(requests, method)
         data: Optional[Union[bytes, str]] = None
         if kwargs:
@@ -98,7 +99,8 @@ class DoleadEntryPointClient:
                 data = stringio.getvalue()
         return method(path, headers=headers, data=data)
 
-    async def _call_with_async_http(self, path: str, method: str, headers: dict, kwargs: dict):
+    async def _call_with_async_http(self, path: str, method: str,
+                                    headers: dict, kwargs: dict):
         async with ClientSession() as session:
             method = getattr(session, method)
             data: Optional[Union[bytes, str]] = None
