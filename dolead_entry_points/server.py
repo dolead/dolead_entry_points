@@ -54,8 +54,18 @@ def set_default_app(**kwargs):
 
 
 def _gen_path(prefix, route='', **kwargs):
-    "Generate a path (aimed at flask, path may not be unique"
-    return ("%s.%s" % (prefix, route or '')).strip('.')
+    """
+    Generate a path (aimed at flask, path may not be unique)
+
+    If the project is a docker, you might need to prefix it with it's docker
+    name.
+    """
+    docker_prefix = ''
+    if 'docker_prefix' in _DEFAULTS:
+        docker_prefix = _DEFAULTS.get('docker_prefix')
+        if docker_prefix[-1] != '/':
+            docker_prefix += '/'
+    return ("%s.%s" % (docker_prefix + prefix, route or '')).strip('.')
 
 
 def _gen_qn(*args, **kw):
