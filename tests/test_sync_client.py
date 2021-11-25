@@ -38,3 +38,22 @@ class TestClientSync():
         example = client.call("https://httpbin.org/get", "get",
                               headers=HEADERS)
         assert example.status_code == 200
+
+
+    def test_multiple(self):
+        client = DoleadEntryPointClient(Transport.HTTP)
+        start = time()
+        gather = [
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS),
+            client.call("https://httpbin.org/get", "get", headers=HEADERS)
+        ]
+        end = time()
+        total_run_time = end - start
+        assert 2.0 < total_run_time
+        assert gather
+        for e in gather:
+            assert e
+            assert e.text
