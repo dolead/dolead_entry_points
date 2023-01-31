@@ -40,6 +40,7 @@ _DEFAULTS = {'flask_app': None,
              'task_prefix': 'core',
              'celery_app': None,
              'celery_formatter': lambda x: x,
+             'prometeus_counter_tracker': None,
              'celery_code_exec_ctx_cls': CodeExecContext}
 
 
@@ -179,8 +180,17 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
 
         map_in_flask(func, path, qualname, method, **kwargs)
 
+        tracker = kwargs_or_defaults('prometeus_counter_tracker', kwargs)
+        project = kwargs_or_defaults('task_prefix', kwargs)
         @wraps(func)
         def wrapper(*args, **kwargs):
+            if tracker:
+                prefix = None
+                if args:
+                    prefix = args[0]
+                route = kwargs.get('route')
+                method = kwargs.get('method')
+                tracker.labels(project, prefix, method, route).inc()
             return func(*args, **kwargs)
 
         return wrapper
