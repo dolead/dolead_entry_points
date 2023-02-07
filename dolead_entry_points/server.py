@@ -192,5 +192,6 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
             if histogram and start is not None:
                 histogram.labels(prefix, route, method).observe(
                     resource.getrusage(resource.RUSAGE_BOTH).ru_utime - start)
+            return result
         return wrapper
     return metawrapper
