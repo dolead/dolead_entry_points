@@ -186,11 +186,11 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
         def wrapper(*args, **kwargs):
             start = None
             if histogram:
-                start = resource.getrusage(resource.RUSAGE_BOTH).ru_utime
+                start = resource.getrusage(resource.RUSAGE_SELF).ru_utime
             result = func(*args, **kwargs)
             if histogram and start is not None:
                 histogram.labels(prefix, route, method).observe(
-                    resource.getrusage(resource.RUSAGE_BOTH).ru_utime - start)
+                    resource.getrusage(resource.RUSAGE_SELF).ru_utime - start)
             return result
         return wrapper
     return metawrapper
