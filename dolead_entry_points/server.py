@@ -182,7 +182,6 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
         map_in_flask(func, path, qualname, method, **kwargs)
 
         histogram = kwargs_or_defaults('prometeus_histogram', kwargs)
-        project = kwargs_or_defaults('task_prefix', kwargs)
         @wraps(func)
         def wrapper(*args, **kwargs):
             start = None
