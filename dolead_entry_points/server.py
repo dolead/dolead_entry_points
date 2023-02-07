@@ -1,4 +1,5 @@
 import collections
+import resource
 import inspect
 import json
 import logging
@@ -40,6 +41,7 @@ _DEFAULTS = {'flask_app': None,
              'task_prefix': 'core',
              'celery_app': None,
              'celery_formatter': lambda x: x,
+             'prometeus_histogram': None,
              'celery_code_exec_ctx_cls': CodeExecContext}
 
 
@@ -179,9 +181,17 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
 
         map_in_flask(func, path, qualname, method, **kwargs)
 
+        histogram = kwargs_or_defaults('prometeus_histogram', kwargs)
+        project = kwargs_or_defaults('task_prefix', kwargs)
         @wraps(func)
         def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
+            start = None
+            if histogram:
+                start = resource.getrusage(resource.RUSAGE_BOTH).ru_utime
+            result = func(*args, **kwargs)
+            if histogram and start is not None:
+                histogram.labels(prefix, route, method).observe(
+                    resource.getrusage(resource.RUSAGE_BOTH).ru_utime - start)
+            return result
         return wrapper
     return metawrapper
