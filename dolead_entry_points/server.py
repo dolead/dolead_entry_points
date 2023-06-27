@@ -128,7 +128,7 @@ def map_in_flask(func, name, qualname, method, **kwargs):
 
         CodeExecCtxCls = kwargs_or_defaults('flask_code_exec_ctx_cls', kwargs)
         if not request.data:
-            request.data = {}
+            request.data = request.form or {}
         formatter = kwargs_or_defaults('flask_formatter', kwargs)
         try:
             with CodeExecCtxCls(request):
