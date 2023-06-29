@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dolead-entry-points"
-version = "0.0.10"
+version = "0.0.11"
 description = "Multiple entry points generator"
 authors = ["François Schmidts <francois@schmidts.fr>"]
 license = "GPLv3"
