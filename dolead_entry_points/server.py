@@ -1,8 +1,8 @@
-import collections
-import resource
 import inspect
 import json
 import logging
+import resource
+from collections.abc import Callable
 from functools import wraps
 from gzip import GzipFile
 from io import BytesIO
@@ -83,8 +83,7 @@ def map_in_celery(func, qualname, **kwargs):
         CodeExecCtxCls = kwargs_or_defaults('celery_code_exec_ctx_cls', kwargs)
         formatter = kwargs_or_defaults('celery_formatter', kwargs)
         with CodeExecCtxCls(self.request):
-            result = formatter(func(*args, **kwargs))
-        return result
+            return formatter(func(*args, **kwargs))
     return celery_wrapper
 
 
@@ -95,11 +94,10 @@ def generic_task(*decorator_args, **decorator_kwargs):
 
     if len(decorator_args) == 1 \
             and not decorator_kwargs \
-            and isinstance(decorator_args[0], collections.Callable):
+            and isinstance(decorator_args[0], Callable):
         return metawrapper(decorator_args[0])
 
     return metawrapper
-
 
 
 def map_in_flask(func, name, qualname, method, **kwargs):
@@ -182,6 +180,7 @@ def serv(prefix, route='', method='get', swagger_specs=None, **kwargs):
         map_in_flask(func, path, qualname, method, **kwargs)
 
         histogram = kwargs_or_defaults('prometeus_histogram', kwargs)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             start = None
