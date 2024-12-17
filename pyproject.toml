@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dolead-entry-points"
-version = "0.0.11"
+version = "0.0.12"
 description = "Multiple entry points generator"
 authors = ["François Schmidts <francois@schmidts.fr>"]
 license = "GPLv3"
@@ -10,7 +10,7 @@ packages = [{include = "dolead_entry_points"}]
 [tool.poetry.dependencies]
 python = "^3.7"
 requests = ">=2.13.0"
-celery = ">=3.1.17,<5"
+celery = ">=3.1.17,<=5"
 
 
 [build-system]
